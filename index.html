@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Privacy Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #eee; min-height: 100vh;
+        }
+        .container { display: flex; min-height: 100vh; }
+        .sidebar { width: 250px; background: #0f3460; padding: 20px; position: fixed; height: 100vh; overflow-y: auto; }
+        .logo { font-size: 24px; font-weight: bold; color: #e94560; margin-bottom: 40px; text-align: center; }
+        .nav-item { padding: 15px; margin: 10px 0; cursor: pointer; border-radius: 8px; transition: all 0.3s; }
+        .nav-item:hover { background: rgba(233, 69, 96, 0.2); transform: translateX(5px); }
+        .nav-item.active { background: #e94560; }
+        .main-content { margin-left: 250px; flex: 1; padding: 30px; }
+        .header { background: rgba(15, 52, 96, 0.5); padding: 20px; border-radius: 10px; margin-bottom: 30px; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .card { background: rgba(15, 52, 96, 0.5); padding: 25px; border-radius: 10px; margin-bottom: 20px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); padding: 20px; border-radius: 10px; border: 2px solid #e94560; }
+        .stat-value { font-size: 36px; font-weight: bold; color: #e94560; margin: 10px 0; }
+        .stat-label { color: #aaa; font-size: 14px; }
+        input, select, textarea { width: 100%; padding: 12px; margin: 10px 0; background: rgba(26, 26, 46, 0.8); border: 2px solid #0f3460; border-radius: 8px; color: #eee; font-size: 16px; }
+        input:focus { outline: none; border-color: #e94560; }
+        button { background: #e94560; color: white; padding: 12px 30px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; margin: 5px; }
+        button:hover { background: #d63851; transform: translateY(-2px); }
+        button.secondary { background: #0f3460; }
+        .password-display { background: rgba(26, 26, 46, 0.8); padding: 20px; border-radius: 8px; font-size: 24px; font-family: monospace; margin: 20px 0; word-break: break-all; border: 2px solid #e94560; }
+        .slider { width: 100%; height: 8px; border-radius: 5px; background: #0f3460; }
+        .strength-meter { height: 20px; background: #0f3460; border-radius: 10px; overflow: hidden; margin: 20px 0; }
+        .strength-bar { height: 100%; transition: all 0.3s; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #0f3460; }
+        th { background: #0f3460; }
+        tr:hover { background: rgba(15, 52, 96, 0.3); }
+        .auth-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .auth-box { background: rgba(15, 52, 96, 0.8); padding: 40px; border-radius: 15px; width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        .auth-title { font-size: 32px; color: #e94560; margin-bottom: 30px; text-align: center; }
+        .hidden { display: none !important; }
+        .chart-container { position: relative; height: 300px; margin: 20px 0; }
+        .action-btn { padding: 8px 15px; margin: 0 5px; font-size: 14px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 999; }
+        .modal.active { display: flex; }
+        .modal-content { background: #16213e; padding: 30px; border-radius: 15px; max-width: 500px; width: 90%; }
+        .log-item { background: rgba(15, 52, 96, 0.5); padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #e94560; }
+    </style>
+</head>
+<body>
+    <div id="authContainer" class="auth-container">
+        <div class="auth-box">
+            <h1 class="auth-title">🔒 Privacy Dashboard</h1>
+            <div id="loginPage">
+                <h2>Login</h2>
+                <input type="email" id="loginEmail" placeholder="Email">
+                <input type="password" id="loginPassword" placeholder="Password">
+                <button onclick="login()" style="width: 100%;">Login</button>
+                <p style="text-align: center; margin-top: 20px;">
+                    Don't have an account? <a href="#" onclick="showRegister()" style="color: #e94560; cursor: pointer;">Register</a>
+                </p>
+            </div>
+            <div id="registerPage" class="hidden">
+                <h2>Register</h2>
+                <input type="text" id="regUsername" placeholder="Username">
+                <input type="email" id="regEmail" placeholder="Email">
+                <input type="password" id="regPassword" placeholder="Password">
+                <button onclick="register()" style="width: 100%;">Register</button>
+                <p style="text-align: center; margin-top: 20px;">
+                    Already have account? <a href="#" onclick="showLogin()" style="color: #e94560; cursor: pointer;">Login</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div id="appContainer" class="container hidden">
+        <div class="sidebar">
+            <div class="logo">🔒 Privacy Dashboard</div>
+            <div class="nav-item active" onclick="showPage('dashboard')">📊 Dashboard</div>
+            <div class="nav-item" onclick="showPage('generator')">🔑 Password Generator</div>
+            <div class="nav-item" onclick="showPage('analyzer')">📈 Strength Analyzer</div>
+            <div class="nav-item" onclick="showPage('vault')">🔐 Password Vault</div>
+            <div class="nav-item" onclick="showPage('logs')">📋 Security Logs</div>
+            <div class="nav-item" onclick="logout()">🚪 Logout</div>
+        </div>
+
+        <div class="main-content">
+            <div class="header"><h1>Welcome, <span id="userName">User</span>!</h1></div>
+            <div id="dashboard" class="page active">
+                <h2>Dashboard</h2>
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-label">Total Passwords</div><div class="stat-value" id="totalPasswords">0</div></div>
+                    <div class="stat-card"><div class="stat-label">Security Score</div><div class="stat-value" id="securityScore">0</div></div>
+                </div>
+            </div>
+            <div id="generator" class="page">
+                <h2>Password Generator</h2>
+                <div class="card">
+                    <div class="password-display" id="generatedPassword">Click Generate</div>
+                    <button onclick="generatePassword()">🔄 Generate</button>
+                    <button onclick="copyPassword()" class="secondary">📋 Copy</button>
+                </div>
+            </div>
+            <div id="analyzer" class="page">
+                <h2>Password Analyzer</h2>
+                <div class="card">
+                    <input type="password" id="analyzePassword" placeholder="Enter password" oninput="analyzePassword()">
+                    <div class="strength-bar" id="strengthBar"></div>
+                    <h3>Strength: <span id="strengthText">N/A</span></h3>
+                </div>
+            </div>
+            <div id="vault" class="page">
+                <h2>Password Vault</h2>
+                <div class="card">
+                    <button onclick="showAddPasswordModal()">➕ Add</button>
+                    <table><thead><tr><th>Service</th><th>Username</th></tr></thead><tbody id="vaultTableBody"></tbody></table>
+                </div>
+            </div>
+            <div id="logs" class="page"><h2>Logs</h2><div class="card" id="logsList"></div></div>
+        </div>
+    </div>
+
+    <div id="addPasswordModal" class="modal">
+        <div class="modal-content">
+            <h2>Add Password</h2>
+            <input type="text" id="modalService" placeholder="Service">
+            <input type="text" id="modalUsername" placeholder="Username">
+            <input type="password" id="modalPassword" placeholder="Password">
+            <button onclick="savePassword()">Save</button>
+            <button onclick="closeModal()" class="secondary">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let passwords = [];
+
+        window.onload = function() {
+            const user = localStorage.getItem('currentUser');
+            if (user) {
+                currentUser = JSON.parse(user);
+                showApp();
+            }
+        };
+
+        function showLogin() {
+            document.getElementById('loginPage').classList.remove('hidden');
+            document.getElementById('registerPage').classList.add('hidden');
+        }
+
+        function showRegister() {
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('registerPage').classList.remove('hidden');
+        }
+
+        function register() {
+            const username = document.getElementById('regUsername').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            if (!username || !email || !password) { alert('All fields required'); return; }
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            if (users.find(u => u.email === email)) { alert('Email exists'); return; }
+            users.push({id: Date.now(), username, email, password: btoa(password)});
+            localStorage.setItem('users', JSON.stringify(users));
+            alert('Registered! Login now.');
+            showLogin();
+        }
+
+        function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            if (!email || !password) { alert('All fields required'); return; }
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const user = users.find(u => u.email === email && u.password === btoa(password));
+            if (!user) { alert('Invalid credentials'); return; }
+            currentUser = user;
+            localStorage.setItem('currentUser', JSON.stringify(user));
+            showApp();
+        }
+
+        function showApp() {
+            document.getElementById('authContainer').classList.add('hidden');
+            document.getElementById('appContainer').classList.remove('hidden');
+            document.getElementById('userName').textContent = currentUser.username;
+            loadPasswords();
+            updateDashboard();
+        }
+
+        function logout() {
+            localStorage.removeItem('currentUser');
+            location.reload();
+        }
+
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function generatePassword() {
+            const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+            let password = '';
+            for (let i = 0; i < 16; i++) {
+                password += charset.charAt(Math.floor(Math.random() * charset.length));
+            }
+            document.getElementById('generatedPassword').textContent = password;
+        }
+
+        function copyPassword() {
+            const password = document.getElementById('generatedPassword').textContent;
+            if (password === 'Click Generate') { alert('Generate first'); return; }
+            navigator.clipboard.writeText(password);
+            alert('Copied!');
+        }
+
+        function analyzePassword() {
+            const password = document.getElementById('analyzePassword').value;
+            let score = 0;
+            if (password.length >= 8) score += 25;
+            if (/[A-Z]/.test(password)) score += 25;
+            if (/[a-z]/.test(password)) score += 25;
+            if (/[0-9]/.test(password)) score += 15;
+            if (/[!@#$%^&*]/.test(password)) score += 10;
+            
+            const bar = document.getElementById('strengthBar');
+            bar.style.width = score + '%';
+            if (score < 40) { bar.style.background = '#f44336'; document.getElementById('strengthText').textContent = 'Weak'; }
+            else if (score < 70) { bar.style.background = '#ff9800'; document.getElementById('strengthText').textContent = 'Moderate'; }
+            else { bar.style.background = '#4caf50'; document.getElementById('strengthText').textContent = 'Strong'; }
+        }
+
+        function showAddPasswordModal() {
+            document.getElementById('addPasswordModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('addPasswordModal').classList.remove('active');
+        }
+
+        function savePassword() {
+            const service = document.getElementById('modalService').value;
+            const username = document.getElementById('modalUsername').value;
+            const password = document.getElementById('modalPassword').value;
+            if (!service || !username || !password) { alert('All required'); return; }
+            passwords.push({id: Date.now(), service, username, password});
+            savePasswords();
+            displayVault();
+            closeModal();
+            alert('Saved!');
+            updateDashboard();
+        }
+
+        function loadPasswords() {
+            const allPasswords = JSON.parse(localStorage.getItem('passwords') || '[]');
+            passwords = allPasswords.filter(p => p.userId === currentUser.id);
+            displayVault();
+        }
+
+        function savePasswords() {
+            const allPasswords = JSON.parse(localStorage.getItem('passwords') || '[]');
+            const others = allPasswords.filter(p => p.userId !== currentUser.id);
+            const updated = passwords.map(p => ({...p, userId: currentUser.id}));
+            localStorage.setItem('passwords', JSON.stringify([...others, ...updated]));
+        }
+
+        function displayVault() {
+            const tbody = document.getElementById('vaultTableBody');
+            if (passwords.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2">No passwords</td></tr>';
+                return;
+            }
+            tbody.innerHTML = passwords.map(p => `<tr><td>${p.service}</td><td>${p.username}</td></tr>`).join('');
+        }
+
+        function updateDashboard() {
+            document.getElementById('totalPasswords').textContent = passwords.length;
+            document.getElementById('securityScore').textContent = Math.min(100, passwords.length * 10);
+        }
+    </script>
+</body>
+</html>
